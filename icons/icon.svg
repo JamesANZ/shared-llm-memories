@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="128" height="128" fill="#2196F3"/>
+    
+    <!-- Brain/Memory Icon -->
+    <g fill="white">
+        <!-- Main circle -->
+        <circle cx="64" cy="64" r="40"/>
+        
+        <!-- Connecting lines -->
+        <path d="M44 44 Q64 24 84 44" stroke="white" stroke-width="12" fill="none"/>
+        <path d="M44 84 Q64 104 84 84" stroke="white" stroke-width="12" fill="none"/>
+        
+        <!-- Additional details -->
+        <circle cx="64" cy="64" r="8"/>
+    </g>
+</svg> 
