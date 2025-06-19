@@ -1,0 +1,11 @@
+{
+  "name": "shared-llm-memories",
+  "version": "1.0.0",
+  "description": "Chrome extension for sharing memories across LLM platforms",
+  "scripts": {
+    "generate-icons": "node generate_icons.js"
+  },
+  "dependencies": {
+    "sharp": "^0.32.0"
+  }
+}
