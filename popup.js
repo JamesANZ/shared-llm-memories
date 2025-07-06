@@ -176,12 +176,44 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      chrome.runtime.sendMessage({
-        action: "syncMemories",
-        memories: memories,
-      });
+      // Send memories directly to the current tab's content script
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          console.log("📤 Sending injection request to tab:", tabs[0].id);
+          chrome.tabs.sendMessage(
+            tabs[0].id,
+            {
+              action: "injectMemories",
+              memories: memories,
+            },
+            (response) => {
+              console.log("📥 Received response:", response);
+              console.log("Runtime error:", chrome.runtime.lastError);
 
-      alert(`Injected ${memories.length} memories to the current tab.`);
+              if (chrome.runtime.lastError) {
+                console.error(
+                  "Error injecting memories:",
+                  chrome.runtime.lastError,
+                );
+                alert(
+                  "Failed to inject memories. Make sure you're on a supported LLM platform (ChatGPT, Claude, or Venice).",
+                );
+              } else if (response && response.success) {
+                alert(
+                  `Successfully injected ${memories.length} memories into the current tab.`,
+                );
+              } else {
+                console.error("Injection failed:", response);
+                alert(
+                  `Failed to inject memories: ${response?.message || "Unknown error"}`,
+                );
+              }
+            },
+          );
+        } else {
+          alert("Could not find the current tab.");
+        }
+      });
     });
   });
 

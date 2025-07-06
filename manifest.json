@@ -3,7 +3,7 @@
   "name": "Shared LLM Memories",
   "version": "1.0.0",
   "description": "Share and manage memories across different LLM platforms",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "tabs"],
   "host_permissions": [
     "*://*.chatgpt.com/*",
     "*://*.claude.ai/*",
