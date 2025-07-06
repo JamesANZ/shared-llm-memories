@@ -2,6 +2,7 @@ class MemoryManager {
   constructor() {
     this.isEnabled = false;
     this.initialize();
+    this.seen = new Set();
   }
 
   async initialize() {
@@ -11,33 +12,32 @@ class MemoryManager {
   }
 
   startMonitoring() {
-    const observer = new MutationObserver(() => {
-      // Wait a short delay so full assistant message is rendered
-      setTimeout(() => {
-        const messages = [
-          ...document.querySelectorAll("[data-message-author-role]"),
-        ];
-        const parsed = messages.map((el) => ({
-          role: el.getAttribute("data-message-author-role"),
-          text: el.textContent.trim(),
-        }));
+    if (!this.isEnabled) {
+      console.log("🛑 Extension is disabled. Not monitoring.");
+      return;
+    }
 
-        // Get the last user + assistant pair
-        for (let i = parsed.length - 2; i >= 0; i--) {
-          if (
-            parsed[i].role === "user" &&
-            parsed[i + 1]?.role === "assistant"
-          ) {
-            const toSave = [parsed[i], parsed[i + 1]];
-            console.log("💾 Saving full pair:", toSave);
-            this.storeMemory(toSave);
-            break;
-          }
+    if (this.observer) {
+      console.log("📡 Already monitoring.");
+      return;
+    }
+
+    console.log("✅ Monitoring enabled.");
+    this.observer = new MutationObserver(() => {
+      const userMessages = document.querySelectorAll(
+        '[data-message-author-role="user"]',
+      );
+      userMessages.forEach((msg) => {
+        const text = msg.innerText?.trim();
+        if (text && !this.seen.has(text)) {
+          this.seen.add(text);
+          console.log("🧠 Captured prompt:", text);
+          this.storeMemory(text);
         }
-      }, 300); // small delay ensures assistant reply is fully rendered
+      });
     });
 
-    observer.observe(document.body, {
+    this.observer.observe(document.body, {
       childList: true,
       subtree: true,
     });
@@ -53,13 +53,13 @@ class MemoryManager {
             ...existing,
             {
               platform: this.detectPlatform(),
-              content, // Stored as array of two objects: [{user}, {assistant}]
+              content,
               timestamp: new Date().toISOString(),
             },
           ],
         },
         () => {
-          console.log("✅ Memory saved.");
+          console.log("💾 Memory saved.");
         },
       );
     });
