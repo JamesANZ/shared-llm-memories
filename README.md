@@ -21,8 +21,62 @@ const prompts = Array.from(
 - Extract prompts from supported LLM platforms
 - Store memories with platform source and timestamp
 - Inject memories as context into other LLM conversations
+- Export memories as Model Context Protocol (MCP) JSON files
 - Clean and intuitive user interface
 - Toggle the extension on and off
+
+## Export Functionality
+
+### Export to Model Context Protocol
+
+The extension can export your collected memories in Model Context Protocol (MCP) format, which is a standardized way to share conversation context between AI models. The exported JSON file includes:
+
+- **Metadata**: Export date, total memories, platforms used
+- **Conversations**: Grouped by platform with timestamps
+- **Summary**: Date range and conversation statistics
+
+### Example MCP Export Format
+
+```json
+{
+  "version": "1.0",
+  "schema": "https://modelcontextprotocol.io/schema/v1.0",
+  "metadata": {
+    "source": "Shared LLM Memories Chrome Extension",
+    "exportDate": "2024-01-15T10:30:00.000Z",
+    "totalMemories": 5,
+    "platforms": ["chatgpt", "claude"],
+    "description": "Exported conversation memories from various LLM platforms"
+  },
+  "context": {
+    "conversations": [
+      {
+        "platform": "chatgpt",
+        "messages": [
+          {
+            "role": "user",
+            "content": "What is the capital of France?",
+            "timestamp": "2024-01-15T10:00:00.000Z",
+            "metadata": {
+              "platform": "chatgpt",
+              "source": "browser_extension",
+              "originalTimestamp": "2024-01-15T10:00:00.000Z"
+            }
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "totalConversations": 1,
+      "totalMessages": 1,
+      "dateRange": {
+        "start": "2024-01-15T10:00:00.000Z",
+        "end": "2024-01-15T10:00:00.000Z"
+      }
+    }
+  }
+}
+```
 
 ## Installation
 

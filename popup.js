@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleSwitch = document.getElementById("toggleSwitch");
   const statusText = document.getElementById("statusText");
   const syncBtn = document.getElementById("syncBtn");
+  const exportBtn = document.getElementById("exportBtn");
   const clearBtn = document.getElementById("clearBtn");
   const memoriesList = document.getElementById("memoriesList");
   const memoryCount = document.getElementById("memoryCount");
@@ -181,6 +182,99 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       alert(`Injected ${memories.length} memories to the current tab.`);
+    });
+  });
+
+  // Export memories as Model Context Protocol JSON
+  function exportMemoriesAsMCP(memories) {
+    // Group memories by platform for better organization
+    const memoriesByPlatform = memories.reduce((acc, memory) => {
+      if (!acc[memory.platform]) {
+        acc[memory.platform] = [];
+      }
+      acc[memory.platform].push(memory);
+      return acc;
+    }, {});
+
+    // Convert memories to Model Context Protocol format
+    const mcpData = {
+      version: "1.0",
+      schema: "https://modelcontextprotocol.io/schema/v1.0",
+      metadata: {
+        source: "Shared LLM Memories Chrome Extension",
+        exportDate: new Date().toISOString(),
+        totalMemories: memories.length,
+        platforms: Object.keys(memoriesByPlatform),
+        description:
+          "Exported conversation memories from various LLM platforms",
+      },
+      context: {
+        conversations: Object.entries(memoriesByPlatform).map(
+          ([platform, platformMemories]) => ({
+            platform: platform,
+            messages: platformMemories
+              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+              .map((memory) => ({
+                role: "user",
+                content: memory.content,
+                timestamp: memory.timestamp,
+                metadata: {
+                  platform: memory.platform,
+                  source: "browser_extension",
+                  originalTimestamp: memory.timestamp,
+                },
+              })),
+          }),
+        ),
+        summary: {
+          totalConversations: Object.keys(memoriesByPlatform).length,
+          totalMessages: memories.length,
+          dateRange: {
+            start: new Date(
+              Math.min(...memories.map((m) => new Date(m.timestamp))),
+            ).toISOString(),
+            end: new Date(
+              Math.max(...memories.map((m) => new Date(m.timestamp))),
+            ).toISOString(),
+          },
+        },
+      },
+    };
+
+    // Create and download the file
+    const blob = new Blob([JSON.stringify(mcpData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `llm-memories-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // Export button click handler
+  exportBtn.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ action: "getMemories" }, (response) => {
+      const memories = response.memories || [];
+      if (memories.length === 0) {
+        alert(
+          "No memories to export. Start using LLM platforms with the extension enabled to collect memories.",
+        );
+        return;
+      }
+
+      try {
+        exportMemoriesAsMCP(memories);
+        alert(
+          `Successfully exported ${memories.length} memories as Model Context Protocol JSON.`,
+        );
+      } catch (error) {
+        console.error("Export error:", error);
+        alert("Failed to export memories. Please try again.");
+      }
     });
   });
 
