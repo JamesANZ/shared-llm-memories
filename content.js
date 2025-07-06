@@ -3,6 +3,19 @@ class MemoryManager {
     this.isEnabled = false;
     this.initialize();
     this.seen = new Set();
+
+    // Listen for toggle state changes from popup
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      if (request.action === "toggleExtension") {
+        console.log("🔄 Toggle state changed to:", request.enabled);
+        this.isEnabled = request.enabled;
+        if (this.isEnabled) {
+          this.startMonitoring();
+        } else {
+          this.stopMonitoring();
+        }
+      }
+    });
   }
 
   async initialize() {
@@ -41,6 +54,14 @@ class MemoryManager {
       childList: true,
       subtree: true,
     });
+  }
+
+  stopMonitoring() {
+    if (this.observer) {
+      console.log("🛑 Stopping monitoring.");
+      this.observer.disconnect();
+      this.observer = null;
+    }
   }
 
   storeMemory(content) {

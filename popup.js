@@ -62,9 +62,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Listen for storage changes
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === "local" && changes.extensionEnabled) {
+      console.log(
+        "Storage changed - extensionEnabled:",
+        changes.extensionEnabled.newValue,
+      );
+      updateToggleUI(changes.extensionEnabled.newValue);
+    }
+  });
+
   // Update toggle UI
   function updateToggleUI(isEnabled) {
     console.log("Updating toggle UI to:", isEnabled);
+    console.log("Current toggle switch classes:", toggleSwitch.className);
+    console.log("Current status text classes:", statusText.className);
+
     if (isEnabled) {
       toggleSwitch.classList.add("active");
       statusText.textContent = "Enabled";
@@ -74,6 +88,12 @@ document.addEventListener("DOMContentLoaded", () => {
       statusText.textContent = "Disabled";
       statusText.className = "status-text disabled";
     }
+
+    console.log(
+      "After update - toggle switch classes:",
+      toggleSwitch.className,
+    );
+    console.log("After update - status text classes:", statusText.className);
   }
 
   // Display memories in the popup
@@ -115,6 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Update UI immediately for better responsiveness
     updateToggleUI(newState);
 
+    // Send message to background script to update storage
     chrome.runtime.sendMessage(
       {
         action: "setToggleState",
@@ -131,12 +152,13 @@ document.addEventListener("DOMContentLoaded", () => {
           updateToggleUI(isCurrentlyEnabled);
           return;
         }
-        if (!response) {
-          console.error("No response received for setToggleState");
+        if (!response || !response.success) {
+          console.error("Failed to set toggle state:", response);
           // Revert UI if there was an error
           updateToggleUI(isCurrentlyEnabled);
           return;
         }
+        console.log("Toggle state successfully updated to:", newState);
         testStorage(); // Debug: show storage after setting
       },
     );
