@@ -53,18 +53,92 @@ class MemoryManager {
     }
 
     console.log("✅ Monitoring enabled.");
-    this.observer = new MutationObserver(() => {
-      const userMessages = document.querySelectorAll(
-        '[data-message-author-role="user"]',
-      );
-      userMessages.forEach((msg) => {
-        const text = msg.innerText?.trim();
-        if (text && !this.seen.has(text)) {
-          this.seen.add(text);
-          console.log("🧠 Captured prompt:", text);
-          this.storeMemory(text);
+
+    const platform = this.detectPlatform();
+    if (platform === "venice") {
+      // Wait for Venice interface to be ready
+      this.waitForVeniceInterface();
+
+      // Set up periodic checking for dynamic content
+      setInterval(() => {
+        const textareas = document.querySelectorAll("textarea");
+        if (textareas.length > 0) {
+          console.log("🔍 Venice.ai - Found textareas:", textareas.length);
+          textareas.forEach((textarea, index) => {
+            console.log(`Textarea ${index}:`, {
+              class: textarea.className,
+              placeholder: textarea.placeholder,
+              id: textarea.id,
+            });
+          });
+        }
+      }, 2000); // Check every 2 seconds
+
+      // Add submit event listener to catch messages when sent
+      document.addEventListener("submit", (event) => {
+        console.log("🔍 Venice.ai - Form submitted:", event.target);
+        const textarea = event.target.querySelector("textarea");
+        if (textarea && textarea.value.trim()) {
+          const text = textarea.value.trim();
+          if (!this.seen.has(text)) {
+            this.seen.add(text);
+            console.log("🧠 Captured Venice submitted message:", text);
+            this.storeMemory(text);
+          }
         }
       });
+
+      // Also listen for button clicks that might submit messages
+      document.addEventListener("click", (event) => {
+        if (
+          event.target.tagName === "BUTTON" &&
+          (event.target.textContent.includes("Submit") ||
+            event.target.getAttribute("aria-label")?.includes("Submit"))
+        ) {
+          console.log("🔍 Venice.ai - Submit button clicked:", event.target);
+          const textarea = document.querySelector("textarea");
+          if (textarea && textarea.value.trim()) {
+            const text = textarea.value.trim();
+            if (!this.seen.has(text)) {
+              this.seen.add(text);
+              console.log("🧠 Captured Venice button-submitted message:", text);
+              this.storeMemory(text);
+            }
+          }
+        }
+      });
+    }
+
+    this.observer = new MutationObserver(() => {
+      const platform = this.detectPlatform();
+
+      if (platform === "chatgpt") {
+        // ChatGPT: Look for user messages
+        const userMessages = document.querySelectorAll(
+          '[data-message-author-role="user"]',
+        );
+        userMessages.forEach((msg) => {
+          const text = msg.innerText?.trim();
+          if (text && !this.seen.has(text)) {
+            this.seen.add(text);
+            console.log("🧠 Captured ChatGPT prompt:", text);
+            this.storeMemory(text);
+          }
+        });
+      } else if (platform === "claude") {
+        // Claude: Look for user messages
+        const userMessages = document.querySelectorAll(
+          '[data-message-author-role="user"]',
+        );
+        userMessages.forEach((msg) => {
+          const text = msg.innerText?.trim();
+          if (text && !this.seen.has(text)) {
+            this.seen.add(text);
+            console.log("🧠 Captured Claude prompt:", text);
+            this.storeMemory(text);
+          }
+        });
+      }
     });
 
     this.observer.observe(document.body, {
@@ -163,8 +237,7 @@ class MemoryManager {
 
       // If there's already text, prepend the context invisibly
       if (currentText) {
-        const newText = `${contextText}${currentText}`;
-        inputElement.textContent = newText;
+        inputElement.textContent = `${contextText}${currentText}`;
       } else {
         // If no text, just set the context as the value
         inputElement.textContent = contextText;
@@ -187,8 +260,7 @@ class MemoryManager {
 
       // If there's already text, prepend the context invisibly
       if (currentText) {
-        const newText = `${contextText}${currentText}`;
-        inputElement.value = newText;
+        inputElement.value = `${contextText}${currentText}`;
       } else {
         // If no text, just set the context as the value
         inputElement.value = contextText;
@@ -227,9 +299,11 @@ class MemoryManager {
   }
 
   injectIntoVenice(memories) {
-    // Find Venice's textarea
+    // Find Venice's textarea using the correct class
     const textarea =
-      document.querySelector('textarea[placeholder*="Message"]') ||
+      document.querySelector("textarea.chakra-textarea.css-1mba8or") ||
+      document.querySelector('textarea[placeholder*="Ask a question"]') ||
+      document.querySelector('textarea[placeholder*="question"]') ||
       document.querySelector("textarea");
 
     if (!textarea) {
@@ -239,11 +313,9 @@ class MemoryManager {
 
     const contextText = this.formatMemoriesAsContext(memories);
     const currentText = textarea.value || "";
-    const newText = currentText
+    textarea.value = currentText
       ? `${contextText}\n\n${currentText}`
       : contextText;
-
-    textarea.value = newText;
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
 
     console.log("✅ Memories injected into Venice");
@@ -292,6 +364,125 @@ class MemoryManager {
     if (host.includes("claude.ai")) return "claude";
     if (host.includes("venice.ai")) return "venice";
     return "unknown";
+  }
+
+  waitForVeniceInterface() {
+    console.log("🔄 Waiting for Venice interface to be ready...");
+
+    const checkInterface = () => {
+      // Look for common Venice interface elements
+      const textarea = document.querySelector("textarea");
+      const inputArea = document.querySelector('[contenteditable="true"]');
+      const submitButton = document.querySelector('button[type="submit"]');
+
+      if (textarea || inputArea || submitButton) {
+        console.log("✅ Venice interface ready!");
+        console.log("Found elements:", {
+          textarea: !!textarea,
+          inputArea: !!inputArea,
+          submitButton: !!submitButton,
+        });
+
+        // Start more aggressive monitoring
+        this.startVeniceMonitoring();
+        return true;
+      }
+
+      return false;
+    };
+
+    // Check immediately
+    if (checkInterface()) {
+      return;
+    }
+
+    // Check every 500ms for up to 10 seconds
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(() => {
+      attempts++;
+      if (checkInterface() || attempts >= maxAttempts) {
+        clearInterval(interval);
+        if (attempts >= maxAttempts) {
+          console.log("⚠️ Venice interface not detected after 10 seconds");
+        }
+      }
+    }, 500);
+  }
+
+  startVeniceMonitoring() {
+    console.log("🎯 Starting Venice user input monitoring...");
+
+    // Only capture when user explicitly submits a message
+    // Don't monitor contenteditable divs as they might contain AI responses
+
+    // Monitor for form submissions (user sending messages)
+    document.addEventListener("submit", (event) => {
+      console.log("🔍 Venice form submitted");
+      const textarea = event.target.querySelector("textarea");
+
+      if (textarea && textarea.value.trim()) {
+        const text = textarea.value.trim();
+        if (!this.seen.has(text)) {
+          this.seen.add(text);
+          console.log(
+            "🧠 Captured Venice form submission:",
+            text.substring(0, 100) + "...",
+          );
+          this.storeMemory(text);
+        }
+      }
+    });
+
+    // Monitor for button clicks that submit messages
+    document.addEventListener("click", (event) => {
+      if (event.target.tagName === "BUTTON") {
+        const buttonText =
+          event.target.textContent ||
+          event.target.getAttribute("aria-label") ||
+          "";
+        if (
+          buttonText.includes("Submit") ||
+          buttonText.includes("Send") ||
+          buttonText.includes("Send message")
+        ) {
+          console.log("🔍 Venice submit button clicked");
+
+          // Look for the input field - only textarea, not contenteditable
+          const textarea = document.querySelector("textarea");
+
+          if (textarea && textarea.value.trim()) {
+            const text = textarea.value.trim();
+            if (!this.seen.has(text)) {
+              this.seen.add(text);
+              console.log(
+                "🧠 Captured Venice button-submitted textarea:",
+                text.substring(0, 100) + "...",
+              );
+              this.storeMemory(text);
+            }
+          }
+        }
+      }
+    });
+
+    // Monitor Enter key presses in textareas
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        const textarea = event.target;
+        if (textarea.tagName === "TEXTAREA" && textarea.value.trim()) {
+          const text = textarea.value.trim();
+          if (!this.seen.has(text)) {
+            this.seen.add(text);
+            console.log(
+              "🧠 Captured Venice Enter-submitted textarea:",
+              text.substring(0, 100) + "...",
+            );
+            this.storeMemory(text);
+          }
+        }
+      }
+    });
   }
 }
 
